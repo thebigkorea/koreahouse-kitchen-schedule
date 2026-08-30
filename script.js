@@ -45,16 +45,15 @@ function toggleDayOff(i,d,btn){ const key=staff[i].role+"|"+staff[i].name; dayOf
 function clearAllDaysOff(){ if(!confirm("선택한 휴일을 모두 취소할까요?")) return; Object.values(dayOffs).forEach(a=>a.fill(false)); renderDayOffMatrix_(); }
 function renderRequired_(){ document.getElementById("requiredGrid").innerHTML=weeklyOptions.map((day,d)=>{ const kitchenNeed=d>=5?9:6; const washNeed=3; return `<div class="required-day"><strong>${DAYS[d]} <small>${esc(day.label||"")}</small></strong><label>주방 <input type="number" min="0" max="12" value="${kitchenNeed}" data-required="kitchen" data-day="${d}"></label><label>설거지 <input type="number" min="0" max="6" value="${washNeed}" data-required="wash" data-day="${d}"></label></div>`; }).join(""); }
 function renderSchedule_(){
-  document.getElementById("scheduleHead").innerHTML=`<tr><th>구분</th>${weeklyOptions.map((d,i)=>`<th>${DAYS[i]}<small>${esc(d.label||"")}</small></th><th>시간</th>`).join("")}</tr>`;
+  document.getElementById("scheduleHead").innerHTML=`<tr><th>구분</th>${weeklyOptions.map((d,i)=>`<th>${DAYS[i]}<small>${esc(d.label||"")}</small></th>`).join("")}</tr>`;
   let html="";
-  ROLE_ORDER.forEach(role=>{ for(let row=0;row<ROW_COUNTS[role];row++){ html+=`<tr><td class="label role-${role}">${row===0?ROLE_LABELS[role]:ROLE_LABELS[role]+" "+(row+1)}</td>`; for(let d=0;d<7;d++){ html+=`<td>${nameSelect_(role,row,d)}</td><td>${timeSelect_(role,row,d)}</td>`; } html+="</tr>"; } });
+  ROLE_ORDER.forEach(role=>{ for(let row=0;row<ROW_COUNTS[role];row++){ html+=`<tr><td class="label role-${role}">${row===0?ROLE_LABELS[role]:ROLE_LABELS[role]+" "+(row+1)}</td>`; for(let d=0;d<7;d++){ html+=`<td>${nameSelect_(role,row,d)}</td>`; } html+="</tr>"; } });
   document.getElementById("scheduleBody").innerHTML=html; updateTitle_();
 }
 function nameSelect_(role,row,d){ const names=(weeklyOptions[d]||{})[role]||[]; return `<select class="name-select" data-role="${role}" data-row="${row}" data-day="${d}"><option value=""></option>${names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select>`; }
-function timeSelect_(role,row,d){ const times=(weeklyOptions[d]||{}).time||[]; return `<select class="time-select" data-role="${role}" data-row="${row}" data-day="${d}"><option value=""></option>${times.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}</select>`; }
 function updateTitle_(){ if(!weeklyOptions.length)return; document.getElementById("scheduleTitle").textContent=`주방·설거지 주간 근무표 (${weeklyOptions[0].label}~${weeklyOptions[6].label})`; }
 function setSelect_(el,v){ if(!el)return; if(v&&!Array.from(el.options).some(o=>o.value===v)) el.add(new Option(v,v)); el.value=v||""; }
-function applySchedule_(schedule){ for(let d=0;d<7;d++) ROLE_ORDER.forEach(role=>{ const items=(schedule[d]||{})[role]||[]; document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach((el,i)=>setSelect_(el,(items[i]||{}).name)); document.querySelectorAll(`.time-select[data-role="${role}"][data-day="${d}"]`).forEach((el,i)=>setSelect_(el,(items[i]||{}).time)); }); }
+function applySchedule_(schedule){ for(let d=0;d<7;d++) ROLE_ORDER.forEach(role=>{ const items=(schedule[d]||{})[role]||[]; document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach((el,i)=>setSelect_(el,(items[i]||{}).name)); }); }
 
 function autoArrange(){
   const assigned={}; staff.forEach(s=>assigned[s.role+"|"+s.name]=0); const warnings=[];
@@ -71,9 +70,9 @@ function arrangeRole_(role,d,need,assigned,warnings,includePrep){
   const candidates=staff.filter(s=>roles.includes(s.role)&&!dayOffs[s.role+"|"+s.name][d]&&assigned[s.role+"|"+s.name]<s.target).sort((a,b)=>assigned[a.role+"|"+a.name]-assigned[b.role+"|"+b.name]||a.name.localeCompare(b.name,"ko"));
   const chosen=candidates.slice(0,need); if(chosen.length<need) warnings.push(`${DAYS[d]} ${role==="wash"?"설거지":"주방"} ${need-chosen.length}명 부족`);
   roles.forEach(r=>document.querySelectorAll(`.name-select[data-role="${r}"][data-day="${d}"]`).forEach(el=>el.value=""));
-  chosen.forEach(s=>{ const empty=Array.from(document.querySelectorAll(`.name-select[data-role="${s.role}"][data-day="${d}"]`)).find(el=>!el.value); if(empty){ setSelect_(empty,s.name); assigned[s.role+"|"+s.name]++; const time=document.querySelector(`.time-select[data-role="${s.role}"][data-row="${empty.dataset.row}"][data-day="${d}"]`); if(time&&time.options.length>1) time.selectedIndex=1; } });
+  chosen.forEach(s=>{ const empty=Array.from(document.querySelectorAll(`.name-select[data-role="${s.role}"][data-day="${d}"]`)).find(el=>!el.value); if(empty){ setSelect_(empty,s.name); assigned[s.role+"|"+s.name]++; } });
 }
-function collectKitchen_(){ const out={}; for(let d=0;d<7;d++){ out[d]={kitchen:[],prep:[],wash:[]}; ROLE_ORDER.forEach(role=>document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach(n=>{ const t=document.querySelector(`.time-select[data-role="${role}"][data-row="${n.dataset.row}"][data-day="${d}"]`); if(n.value||(t&&t.value)) out[d][role].push({name:n.value,time:t?t.value:""}); })); } return out; }
+function collectKitchen_(){ const out={}; for(let d=0;d<7;d++){ out[d]={kitchen:[],prep:[],wash:[]}; ROLE_ORDER.forEach(role=>document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach(n=>{ if(n.value) out[d][role].push({name:n.value,time:"09:00-21:00"}); })); } return out; }
 async function saveKitchenSchedule(){
   const monday=document.getElementById("mondayInput").value; if(!monday)return alert("주간 시작일을 선택하세요."); if(!confirm("주방·전처리·설거지 근무표를 저장할까요?\n기존 홀·퇴식 근무표는 그대로 유지됩니다."))return;
   const changed=collectKitchen_(), merged=normalizeSchedule_(fullSchedule); for(let d=0;d<7;d++) ROLE_ORDER.forEach(r=>merged[d][r]=changed[d][r]);
