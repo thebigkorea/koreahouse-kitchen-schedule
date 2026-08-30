@@ -43,7 +43,7 @@ function renderDayOffMatrix_(){
 }
 function toggleDayOff(i,d,btn){ const key=staff[i].role+"|"+staff[i].name; dayOffs[key][d]=!dayOffs[key][d]; btn.classList.toggle("off",dayOffs[key][d]); btn.textContent=dayOffs[key][d]?"휴일":"근무 가능"; }
 function clearAllDaysOff(){ if(!confirm("선택한 휴일을 모두 취소할까요?")) return; Object.values(dayOffs).forEach(a=>a.fill(false)); renderDayOffMatrix_(); }
-function renderRequired_(){ document.getElementById("requiredGrid").innerHTML=weeklyOptions.map((day,d)=>`<div class="required-day"><strong>${DAYS[d]} <small>${esc(day.label||"")}</small></strong><label>주방 <input type="number" min="0" max="12" value="6" data-required="kitchen" data-day="${d}"></label><label>설거지 <input type="number" min="0" max="6" value="2" data-required="wash" data-day="${d}"></label></div>`).join(""); }
+function renderRequired_(){ document.getElementById("requiredGrid").innerHTML=weeklyOptions.map((day,d)=>{ const kitchenNeed=d>=5?9:6; const washNeed=3; return `<div class="required-day"><strong>${DAYS[d]} <small>${esc(day.label||"")}</small></strong><label>주방 <input type="number" min="0" max="12" value="${kitchenNeed}" data-required="kitchen" data-day="${d}"></label><label>설거지 <input type="number" min="0" max="6" value="${washNeed}" data-required="wash" data-day="${d}"></label></div>`; }).join(""); }
 function renderSchedule_(){
   document.getElementById("scheduleHead").innerHTML=`<tr><th>구분</th>${weeklyOptions.map((d,i)=>`<th>${DAYS[i]}<small>${esc(d.label||"")}</small></th><th>시간</th>`).join("")}</tr>`;
   let html="";
