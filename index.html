@@ -41,7 +41,7 @@
 
     <section class="step-card">
       <div class="step-head"><span>2</span><div><h2>직원별 휴일 선택</h2><p>쉬는 날을 누르면 빨간색 휴일로 바뀝니다.</p></div></div>
-      <div class="toolbar"><button onclick="clearAllDaysOff()">휴일 전체 취소</button><span class="legend"><i></i> 휴일로 선택됨</span></div>
+      <div class="toolbar"><div class="dayoff-actions"><button type="button" onclick="clearAllDaysOff()">휴일 전체 취소</button><button type="button" class="primary" onclick="saveDayOffs()">💾 휴일 저장</button></div><span class="legend"><i></i> 휴일로 선택됨</span></div>
       <div class="matrix-scroll dayoff-scroll"><table class="dayoff-table"><thead id="dayOffHead"></thead><tbody id="dayOffBody"></tbody></table></div>
     </section>
 
@@ -75,6 +75,6 @@
   </div>
   <footer>한국의집 주방·설거지 주간 근무표</footer>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="script.js?v=7"></script>
+  <script src="script.js?v=9"></script>
 </body>
 </html>
