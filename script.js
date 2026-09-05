@@ -1,81 +1,59 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwN4WtoaPahj-QCa0OwnSCIPBasRXEAtn1WFttHS2pjizj4KhSuxP5hGU6bfUTef-pb/exec";
-const DAYS = ["월","화","수","목","금","토","일"];
-const ROLE_LABELS = { kitchen:"주방", prep:"전처리", wash:"설거지" };
-const ROLE_ORDER = ["kitchen","prep","wash"];
-const ROW_COUNTS = { kitchen:8, prep:2, wash:4 };
-let weeklyOptions = [], staff = [], dayOffs = {}, fullSchedule = emptySchedule_();
+﻿const API_URL='https://script.google.com/macros/s/AKfycbwN4WtoaPahj-QCa0OwnSCIPBasRXEAtn1WFttHS2pjizj4KhSuxP5hGU6bfUTef-pb/exec';
+const DAYS=['월','화','수','목','금','토','일'];
+const ROLE_LABELS={kitchen:'주방조리',prep:'전처리',wash:'설거지'};
+const ROLE_ORDER=['kitchen','prep','wash'];
+const ROW_COUNTS={kitchen:10,prep:3,wash:6};
+let weeklyOptions=[],staff=[],dayOffs={},fullSchedule=emptySchedule_();
 
-document.addEventListener("DOMContentLoaded", () => { document.getElementById("mondayInput").addEventListener("change", loadSelectedWeek); setThisWeek(); });
-function getMonday(d){ d=new Date(d); const n=d.getDay(); d.setDate(d.getDate()+(n===0?-6:1-n)); d.setHours(0,0,0,0); return d; }
-function fmt(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-function setThisWeek(){ document.getElementById("mondayInput").value=fmt(getMonday(new Date())); loadSelectedWeek(false); }
-function setNextWeek(){ const d=getMonday(new Date()); d.setDate(d.getDate()+7); document.getElementById("mondayInput").value=fmt(d); loadSelectedWeek(false); }
-function loadThisWeek(){ setThisWeek(); }
-function showLoading(v){ document.getElementById("loadingBox").classList.toggle("hidden",!v); }
-function emptySchedule_(){ const s={}; for(let d=0;d<7;d++) s[d]={hall:[],kitchen:[],prep:[],exit:[],wash:[]}; return s; }
-function esc(v){ return String(v||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+document.addEventListener('DOMContentLoaded',()=>{document.getElementById('mondayInput').addEventListener('change',loadSelectedWeek);setThisWeek();});
+function getMonday(d){d=new Date(d);const n=d.getDay();d.setDate(d.getDate()+(n===0?-6:1-n));d.setHours(0,0,0,0);return d;}
+function fmt(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function setThisWeek(){document.getElementById('mondayInput').value=fmt(getMonday(new Date()));loadSelectedWeek(false);}
+function setNextWeek(){const d=getMonday(new Date());d.setDate(d.getDate()+7);document.getElementById('mondayInput').value=fmt(d);loadSelectedWeek(false);}
+function loadThisWeek(){setThisWeek();}
+function showLoading(v){document.getElementById('loadingBox').classList.toggle('hidden',!v);}
+function emptySchedule_(){const s={};for(let d=0;d<7;d++)s[d]={hall:[],kitchen:[],prep:[],exit:[],wash:[]};return s;}
+function esc(v){return String(v||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');}
+async function apiGet(action,params={}){const q=new URLSearchParams({action,...params,t:Date.now()});const r=await fetch(`${API_URL}?${q}`,{cache:'no-store'});return r.json();}
+async function apiPost(body){const r=await fetch(API_URL,{method:'POST',body:JSON.stringify(body)});return r.json();}
 
 async function loadSelectedWeek(showMessage=true){
-  const monday=document.getElementById("mondayInput").value; if(!monday) return;
-  showLoading(true);
+  const monday=document.getElementById('mondayInput').value;if(!monday)return;showLoading(true);
   try{
-    const r=await fetch(`${API_URL}?action=getWeeklyScheduleBundle&monday=${encodeURIComponent(monday)}&t=${Date.now()}`,{cache:"no-store"});
-    const result=await r.json(); if(!result.ok) throw new Error(result.message||"조회 실패");
-    weeklyOptions=result.data.options||[];
-    const saved=result.data.schedule||{}; fullSchedule=saved.found ? normalizeSchedule_(saved.schedule) : emptySchedule_();
-    buildStaff_(); seedDaysOff_(); renderAll_(); applySchedule_(fullSchedule);
-    if(showMessage) alert(saved.found?"저장된 주방·설거지 근무표를 불러왔습니다.":"저장된 근무표가 없어 새 근무표를 작성합니다.");
-  }catch(e){ console.error(e); alert("근무표를 불러오지 못했습니다."); }
-  finally{ showLoading(false); }
+    const [bundle,staffResult]=await Promise.all([apiGet('getWeeklyScheduleBundle',{monday}),apiGet('getKitchenStaffList')]);
+    if(!bundle.ok)throw new Error(bundle.message||'조회 실패');
+    weeklyOptions=bundle.data.options||[];const saved=bundle.data.schedule||{};fullSchedule=saved.found?normalizeSchedule_(saved.schedule):emptySchedule_();
+    staff=staffResult.ok?(staffResult.staff||[]):fallbackStaff_();dayOffs=saved.dayOffs||{};seedDaysOff_();renderAll_();applySchedule_(fullSchedule);validateAssignments_(false);
+    if(showMessage)alert(saved.found?'저장된 근무표를 불러왔습니다.':'새 근무표를 작성합니다.');
+  }catch(e){console.error(e);alert('근무표를 불러오지 못했습니다. 서버에 직원관리 action을 추가했는지 확인하세요.');}
+  finally{showLoading(false);}
 }
-function normalizeSchedule_(src){ const out=emptySchedule_(); for(let d=0;d<7;d++) ROLE_ORDER.concat(["hall","exit"]).forEach(r=>out[d][r]=((src[d]||{})[r]||[])); return out; }
-function buildStaff_(){
-  const seen=new Set(); staff=[];
-  ROLE_ORDER.forEach(role=>{
-    weeklyOptions.forEach(day=>(day[role]||[]).forEach(name=>{ const key=role+"|"+name; if(!seen.has(key)){ seen.add(key); staff.push({name,role,target:role==="wash"?5:5}); } }));
-  });
-}
-function seedDaysOff_(){ dayOffs={}; staff.forEach(s=>{ dayOffs[s.role+"|"+s.name]=weeklyOptions.map(d=>(d.dayOffNames||[]).includes(s.name)); }); }
-function renderAll_(){ renderDayOffMatrix_(); renderRequired_(); renderSchedule_(); }
-function renderDayOffMatrix_(){
-  document.getElementById("dayOffHead").innerHTML=`<tr><th>구분</th><th>직원명</th>${weeklyOptions.map((d,i)=>`<th>${DAYS[i]}<small>${esc(d.label||"")}</small></th>`).join("")}<th>목표일수</th></tr>`;
-  document.getElementById("dayOffBody").innerHTML=staff.map((s,i)=>`<tr><td><span class="role role-${s.role}">${ROLE_LABELS[s.role]}</span></td><td class="staff-name">${esc(s.name)}</td>${DAYS.map((_,d)=>`<td><button class="day-toggle ${dayOffs[s.role+'|'+s.name][d]?'off':''}" onclick="toggleDayOff(${i},${d},this)">${dayOffs[s.role+'|'+s.name][d]?'휴일':'근무 가능'}</button></td>`).join("")}<td><select onchange="staff[${i}].target=Number(this.value)">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${n===s.target?'selected':''}>주 ${n}일</option>`).join("")}</select></td></tr>`).join("") || `<tr><td colspan="11">등록된 주방·전처리·설거지 직원이 없습니다.</td></tr>`;
-}
-function toggleDayOff(i,d,btn){ const key=staff[i].role+"|"+staff[i].name; dayOffs[key][d]=!dayOffs[key][d]; btn.classList.toggle("off",dayOffs[key][d]); btn.textContent=dayOffs[key][d]?"휴일":"근무 가능"; }
-function clearAllDaysOff(){ if(!confirm("선택한 휴일을 모두 취소할까요?")) return; Object.values(dayOffs).forEach(a=>a.fill(false)); renderDayOffMatrix_(); }
-function renderRequired_(){ document.getElementById("requiredGrid").innerHTML=weeklyOptions.map((day,d)=>{ const kitchenNeed=d>=5?9:6; const washNeed=3; return `<div class="required-day"><strong>${DAYS[d]} <small>${esc(day.label||"")}</small></strong><label>주방 <input type="number" min="0" max="12" value="${kitchenNeed}" data-required="kitchen" data-day="${d}"></label><label>설거지 <input type="number" min="0" max="6" value="${washNeed}" data-required="wash" data-day="${d}"></label></div>`; }).join(""); }
-function renderSchedule_(){
-  document.getElementById("scheduleHead").innerHTML=`<tr><th>구분</th>${weeklyOptions.map((d,i)=>`<th>${DAYS[i]}<small>${esc(d.label||"")}</small></th>`).join("")}</tr>`;
-  let html="";
-  ROLE_ORDER.forEach(role=>{ for(let row=0;row<ROW_COUNTS[role];row++){ html+=`<tr><td class="label role-${role}">${row===0?ROLE_LABELS[role]:ROLE_LABELS[role]+" "+(row+1)}</td>`; for(let d=0;d<7;d++){ html+=`<td>${nameSelect_(role,row,d)}</td>`; } html+="</tr>"; } });
-  document.getElementById("scheduleBody").innerHTML=html; updateTitle_();
-}
-function nameSelect_(role,row,d){ const names=(weeklyOptions[d]||{})[role]||[]; return `<select class="name-select" data-role="${role}" data-row="${row}" data-day="${d}"><option value=""></option>${names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select>`; }
-function updateTitle_(){ if(!weeklyOptions.length)return; document.getElementById("scheduleTitle").textContent=`주방·설거지 주간 근무표 (${weeklyOptions[0].label}~${weeklyOptions[6].label})`; }
-function setSelect_(el,v){ if(!el)return; if(v&&!Array.from(el.options).some(o=>o.value===v)) el.add(new Option(v,v)); el.value=v||""; }
-function applySchedule_(schedule){ for(let d=0;d<7;d++) ROLE_ORDER.forEach(role=>{ const items=(schedule[d]||{})[role]||[]; document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach((el,i)=>setSelect_(el,(items[i]||{}).name)); }); }
+function normalizeSchedule_(src){const out=emptySchedule_();for(let d=0;d<7;d++)ROLE_ORDER.concat(['hall','exit']).forEach(r=>out[d][r]=((src[d]||{})[r]||[]));return out;}
+function fallbackStaff_(){const seen=new Set(),out=[];ROLE_ORDER.forEach(role=>weeklyOptions.forEach(day=>(day[role]||[]).forEach(name=>{const k=role+'|'+name;if(!seen.has(k)){seen.add(k);out.push({id:k,name,role,target:5,start:'09:00',end:'21:00'});}})));return out;}
+function seedDaysOff_(){const old=dayOffs;dayOffs={};staff.forEach(s=>{const k=s.id;dayOffs[k]=old[k]||weeklyOptions.map(d=>(d.dayOffNames||[]).includes(s.name));});}
+function renderAll_(){renderStaffManage_();renderDayOffMatrix_();renderRequired_();renderSchedule_();}
 
-function autoArrange(){
-  const assigned={}; staff.forEach(s=>assigned[s.role+"|"+s.name]=0); const warnings=[];
-  for(let d=0;d<7;d++){
-    const kitchenNeed=Number(document.querySelector(`[data-required="kitchen"][data-day="${d}"]`).value)||0;
-    const washNeed=Number(document.querySelector(`[data-required="wash"][data-day="${d}"]`).value)||0;
-    arrangeRole_("kitchen",d,kitchenNeed,assigned,warnings,true); arrangeRole_("wash",d,washNeed,assigned,warnings,false);
-  }
-  document.getElementById("warningText").textContent=warnings.length?`⚠️ ${warnings.join(" / ")}`:"휴일을 제외하여 자동편성했습니다.";
-  document.querySelector(".table-card").scrollIntoView({behavior:"smooth"});
-}
-function arrangeRole_(role,d,need,assigned,warnings,includePrep){
-  const roles=includePrep?["kitchen","prep"]:[role];
-  const candidates=staff.filter(s=>roles.includes(s.role)&&!dayOffs[s.role+"|"+s.name][d]&&assigned[s.role+"|"+s.name]<s.target).sort((a,b)=>assigned[a.role+"|"+a.name]-assigned[b.role+"|"+b.name]||a.name.localeCompare(b.name,"ko"));
-  const chosen=candidates.slice(0,need); if(chosen.length<need) warnings.push(`${DAYS[d]} ${role==="wash"?"설거지":"주방"} ${need-chosen.length}명 부족`);
-  roles.forEach(r=>document.querySelectorAll(`.name-select[data-role="${r}"][data-day="${d}"]`).forEach(el=>el.value=""));
-  chosen.forEach(s=>{ const empty=Array.from(document.querySelectorAll(`.name-select[data-role="${s.role}"][data-day="${d}"]`)).find(el=>!el.value); if(empty){ setSelect_(empty,s.name); assigned[s.role+"|"+s.name]++; } });
-}
-function collectKitchen_(){ const out={}; for(let d=0;d<7;d++){ out[d]={kitchen:[],prep:[],wash:[]}; ROLE_ORDER.forEach(role=>document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach(n=>{ if(n.value) out[d][role].push({name:n.value,time:"09:00-21:00"}); })); } return out; }
-async function saveKitchenSchedule(){
-  const monday=document.getElementById("mondayInput").value; if(!monday)return alert("주간 시작일을 선택하세요."); if(!confirm("주방·전처리·설거지 근무표를 저장할까요?\n기존 홀·퇴식 근무표는 그대로 유지됩니다."))return;
-  const changed=collectKitchen_(), merged=normalizeSchedule_(fullSchedule); for(let d=0;d<7;d++) ROLE_ORDER.forEach(r=>merged[d][r]=changed[d][r]);
-  showLoading(true); try{ const r=await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"saveWeeklySchedule",monday,schedule:merged,dayOffs})}); const data=await r.json(); if(!data.ok)throw new Error(data.message||"저장 실패"); fullSchedule=merged; alert("주방·설거지 근무표와 선택한 휴일이 저장되었습니다."); }catch(e){console.error(e);alert("저장 중 오류가 발생했습니다.");}finally{showLoading(false);}
-}
-async function makeScheduleImage(){ if(typeof html2canvas!=="function")return alert("이미지 기능을 불러오지 못했습니다."); const card=document.querySelector(".table-card"); const canvas=await html2canvas(card,{scale:2,backgroundColor:"#ffffff",useCORS:true}); canvas.toBlob(async blob=>{ try{ await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]); alert("근무표 이미지를 복사했습니다. 카카오톡에 붙여넣으세요."); }catch(e){ const a=document.createElement("a"); a.download="한국의집-주방설거지-근무표.png"; a.href=canvas.toDataURL("image/png"); a.click(); } },"image/png"); }
+function renderStaffManage_(){document.getElementById('staffManageBody').innerHTML=staff.map((s,i)=>`<tr><td>${ROLE_LABELS[s.role]}</td><td>${esc(s.name)}</td><td>주 ${s.target}일</td><td>${s.start}~${s.end}</td><td><div class="manage-buttons"><button onclick="editStaff(${i})">수정</button><button class="danger" onclick="removeStaff(${i})">삭제</button></div></td></tr>`).join('')||'<tr><td colspan="5">등록된 직원이 없습니다.</td></tr>';}
+function resetStaffForm(){document.getElementById('staffForm').reset();document.getElementById('staffId').value='';document.getElementById('staffTarget').value='5';document.getElementById('staffStart').value='09:00';document.getElementById('staffEnd').value='21:00';}
+function editStaff(i){const s=staff[i];document.getElementById('staffId').value=s.id;document.getElementById('staffName').value=s.name;document.getElementById('staffRole').value=s.role;document.getElementById('staffTarget').value=s.target;document.getElementById('staffStart').value=s.start;document.getElementById('staffEnd').value=s.end;document.getElementById('staffName').focus();}
+async function saveStaff(e){e.preventDefault();const body={action:'saveKitchenStaff',id:document.getElementById('staffId').value,name:document.getElementById('staffName').value.trim(),role:document.getElementById('staffRole').value,target:Number(document.getElementById('staffTarget').value),start:document.getElementById('staffStart').value||'09:00',end:document.getElementById('staffEnd').value||'21:00'};showLoading(true);try{const r=await apiPost(body);if(!r.ok)throw new Error(r.message);resetStaffForm();await loadSelectedWeek(false);}catch(e){alert(e.message||'직원 저장 실패');}finally{showLoading(false);}}
+async function removeStaff(i){if(!confirm(`${staff[i].name} 직원을 삭제할까요?`))return;showLoading(true);try{const r=await apiPost({action:'deleteKitchenStaff',id:staff[i].id});if(!r.ok)throw new Error(r.message);await loadSelectedWeek(false);}catch(e){alert(e.message||'삭제 실패');}finally{showLoading(false);}}
+
+function renderDayOffMatrix_(){document.getElementById('dayOffHead').innerHTML=`<tr><th>구분</th><th>직원명</th>${weeklyOptions.map((d,i)=>`<th>${DAYS[i]}<small>${esc(d.label||'')}</small></th>`).join('')}<th>목표일수</th></tr>`;document.getElementById('dayOffBody').innerHTML=staff.map((s,i)=>`<tr><td>${ROLE_LABELS[s.role]}</td><td>${esc(s.name)}</td>${DAYS.map((_,d)=>`<td><button class="day-toggle ${dayOffs[s.id][d]?'off':''}" onclick="toggleDayOff(${i},${d},this)">${dayOffs[s.id][d]?'휴일':'근무 가능'}</button></td>`).join('')}<td>주 ${s.target}일</td></tr>`).join('')||'<tr><td colspan="11">직원을 먼저 등록하세요.</td></tr>';}
+function toggleDayOff(i,d,btn){dayOffs[staff[i].id][d]=!dayOffs[staff[i].id][d];btn.classList.toggle('off',dayOffs[staff[i].id][d]);btn.textContent=dayOffs[staff[i].id][d]?'휴일':'근무 가능';validateAssignments_(false);}
+function clearAllDaysOff(){if(!confirm('선택한 휴일을 모두 취소할까요?'))return;Object.values(dayOffs).forEach(a=>a.fill(false));renderDayOffMatrix_();}
+function renderRequired_(){document.getElementById('requiredGrid').innerHTML=weeklyOptions.map((day,d)=>`<div class="required-day"><strong>${DAYS[d]} <small>${esc(day.label||'')}</small></strong><label>주방 <input type="number" min="0" max="12" value="${d>=5?9:6}" data-required="kitchen" data-day="${d}"></label><label>설거지 <input type="number" min="0" max="8" value="3" data-required="wash" data-day="${d}"></label></div>`).join('');}
+function renderSchedule_(){document.getElementById('scheduleHead').innerHTML=`<tr><th rowspan="2">구분</th>${weeklyOptions.map((d,i)=>`<th colspan="2">${DAYS[i]} <small>${esc(d.label||'')}</small></th>`).join('')}</tr><tr>${DAYS.map(()=>'<th>이름</th><th>근무시간</th>').join('')}</tr>`;let h='';ROLE_ORDER.forEach(role=>{for(let row=0;row<ROW_COUNTS[role];row++){h+=`<tr><td class="role-cell">${row===0?ROLE_LABELS[role]:ROLE_LABELS[role]+' '+(row+1)}</td>`;for(let d=0;d<7;d++)h+=scheduleCells_(role,row,d);h+='</tr>'; }h+=`<tr class="off-row"><td>${ROLE_LABELS[role]} 휴무/미배치</td>${DAYS.map((_,d)=>`<td colspan="2" id="status-${role}-${d}">-</td>`).join('')}</tr>`;});document.getElementById('scheduleBody').innerHTML=h;updateTitle_();}
+function scheduleCells_(role,row,d){const options=staff.filter(s=>s.role===role).map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');const dispatch=role==='kitchen'||role==='wash'?'<option value="dispatch">파출</option>':'';return `<td><select class="name-select" data-role="${role}" data-row="${row}" data-day="${d}" onchange="onNameChange(this)"><option value=""></option>${options}${dispatch}</select></td><td><div class="time-wrap"><input type="time" class="start-time" data-role="${role}" data-row="${row}" data-day="${d}" value="09:00"><b>~</b><input type="time" class="end-time" data-role="${role}" data-row="${row}" data-day="${d}" value="21:00"></div></td>`;}
+function updateTitle_(){if(weeklyOptions.length)document.getElementById('scheduleTitle').textContent=`주방·설거지 주간 근무표 (${weeklyOptions[0].label}~${weeklyOptions[6].label})`;}
+function onNameChange(el){const s=staff.find(x=>x.id===el.value);const q=`[data-role="${el.dataset.role}"][data-row="${el.dataset.row}"][data-day="${el.dataset.day}"]`;if(s){document.querySelector('.start-time'+q).value=s.start||'09:00';document.querySelector('.end-time'+q).value=s.end||'21:00';}validateAssignments_(false);}
+function setSelect_(el,item){if(!el||!item)return;let value=item.staffId||'';if(!value&&item.name==='파출')value='dispatch';if(!value){const found=staff.find(s=>s.name===item.name&&s.role===el.dataset.role);value=found?found.id:'';}el.value=value;const q=`[data-role="${el.dataset.role}"][data-row="${el.dataset.row}"][data-day="${el.dataset.day}"]`;document.querySelector('.start-time'+q).value=(item.time||'09:00-21:00').split('-').slice(0,2).join(':').slice(0,5);const m=String(item.time||'09:00-21:00').match(/(\d{2}:\d{2})\s*[-~]\s*(\d{2}:\d{2})/);if(m){document.querySelector('.start-time'+q).value=m[1];document.querySelector('.end-time'+q).value=m[2];}}
+function applySchedule_(schedule){for(let d=0;d<7;d++)ROLE_ORDER.forEach(role=>{const items=(schedule[d]||{})[role]||[];document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach((el,i)=>setSelect_(el,items[i]));});}
+
+function autoArrange(){document.querySelectorAll('.name-select').forEach(el=>el.value='');const assigned={};staff.forEach(s=>assigned[s.id]=0);for(let d=0;d<7;d++){arrangeRole_('kitchen',d,Number(document.querySelector(`[data-required="kitchen"][data-day="${d}"]`).value)||0,assigned,true);arrangeRole_('wash',d,Number(document.querySelector(`[data-required="wash"][data-day="${d}"]`).value)||0,assigned,false);}validateAssignments_(false);document.querySelector('.table-card').scrollIntoView({behavior:'smooth'});}
+function arrangeRole_(role,d,need,assigned,includePrep){const roles=includePrep?['kitchen','prep']:[role];const candidates=staff.filter(s=>roles.includes(s.role)&&!dayOffs[s.id][d]&&assigned[s.id]<s.target).sort((a,b)=>assigned[a.id]-assigned[b.id]||a.name.localeCompare(b.name,'ko'));const chosen=candidates.slice(0,need);chosen.forEach(s=>{const el=Array.from(document.querySelectorAll(`.name-select[data-role="${s.role}"][data-day="${d}"]`)).find(x=>!x.value);if(el){el.value=s.id;onNameChange(el);assigned[s.id]++;}});let shortage=need-chosen.length;const dispatchRole=role==='wash'?'wash':'kitchen';while(shortage-->0){const el=Array.from(document.querySelectorAll(`.name-select[data-role="${dispatchRole}"][data-day="${d}"]`)).find(x=>!x.value);if(el){el.value='dispatch';onNameChange(el);}}}
+function assignedIds_(d){return Array.from(document.querySelectorAll(`.name-select[data-day="${d}"]`)).map(el=>el.value).filter(v=>v&&v!=='dispatch');}
+function validateAssignments_(forSave){const errors=[];for(let d=0;d<7;d++){const ids=assignedIds_(d),counts={};ids.forEach(id=>counts[id]=(counts[id]||0)+1);staff.forEach(s=>{const off=dayOffs[s.id][d],assigned=ids.includes(s.id);if(off&&assigned)errors.push(`${DAYS[d]} ${s.name}: 휴일인데 근무 배치`);if(!off&&!assigned)errors.push(`${DAYS[d]} ${s.name}: 휴무도 아니고 근무조에도 없는 미배치`);if((counts[s.id]||0)>1)errors.push(`${DAYS[d]} ${s.name}: 중복 배치`);});ROLE_ORDER.forEach(role=>{const off=staff.filter(s=>s.role===role&&dayOffs[s.id][d]).map(s=>s.name);const missing=staff.filter(s=>s.role===role&&!dayOffs[s.id][d]&&!ids.includes(s.id)).map(s=>s.name);document.getElementById(`status-${role}-${d}`).textContent=[off.length?'휴무: '+off.join(', '):'',missing.length?'미배치: '+missing.join(', '):''].filter(Boolean).join(' / ')||'없음';});}const box=document.getElementById('statusSummary');box.textContent=errors.length?'⚠️ '+errors.join('\n'):'✓ 휴무 및 근무 배치 확인 완료';box.classList.toggle('error',errors.length>0);document.getElementById('warningText').textContent=errors.length?`미배치·오류 ${errors.length}건`:'모든 직원이 확인되었습니다.';if(forSave&&errors.length)alert('미배치 또는 휴일 배치 오류를 먼저 해결하세요.');return errors;}
+function collectKitchen_(){const out={};for(let d=0;d<7;d++){out[d]={kitchen:[],prep:[],wash:[]};ROLE_ORDER.forEach(role=>document.querySelectorAll(`.name-select[data-role="${role}"][data-day="${d}"]`).forEach(el=>{if(!el.value)return;const q=`[data-role="${role}"][data-row="${el.dataset.row}"][data-day="${d}"]`;const start=document.querySelector('.start-time'+q).value||'09:00',end=document.querySelector('.end-time'+q).value||'21:00';const s=staff.find(x=>x.id===el.value);out[d][role].push({staffId:s?s.id:'',name:el.value==='dispatch'?'파출':s.name,time:`${start}-${end}`});}));}return out;}
+async function saveKitchenSchedule(){if(validateAssignments_(true).length)return;const monday=document.getElementById('mondayInput').value;if(!monday)return alert('주간 시작일을 선택하세요.');if(!confirm('근무표를 저장할까요?'))return;const changed=collectKitchen_(),merged=normalizeSchedule_(fullSchedule);for(let d=0;d<7;d++)ROLE_ORDER.forEach(r=>merged[d][r]=changed[d][r]);showLoading(true);try{const data=await apiPost({action:'saveWeeklySchedule',monday,schedule:merged,dayOffs});if(!data.ok)throw new Error(data.message||'저장 실패');fullSchedule=merged;alert('저장되었습니다.');}catch(e){alert(e.message||'저장 오류');}finally{showLoading(false);}}
+async function makeScheduleImage(){if(typeof html2canvas!=='function')return alert('이미지 기능을 불러오지 못했습니다.');const canvas=await html2canvas(document.querySelector('.table-card'),{scale:2,backgroundColor:'#fff',useCORS:true});canvas.toBlob(async blob=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);alert('이미지를 복사했습니다.');}catch(e){const a=document.createElement('a');a.download='한국의집-주방설거지-근무표.png';a.href=canvas.toDataURL('image/png');a.click();}},'image/png');}
