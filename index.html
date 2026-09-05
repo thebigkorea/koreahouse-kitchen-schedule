@@ -46,7 +46,8 @@
     </section>
 
     <section class="step-card">
-      <div class="step-head"><span>3</span><div><h2>날짜별 필요 인원</h2><p>등록 직원이 부족하면 주방과 설거지에 파출이 자동으로 배치됩니다.</p></div></div>
+      <div class="step-head"><span>3</span><div><h2>날짜별 필요 인원</h2><p>저장한 인원은 다시 변경하기 전까지 계속 적용됩니다.</p></div></div>
+      <div class="required-actions"><button id="requiredEditButton" type="button" onclick="editRequiredCounts()">✏️ 필요 인원 수정</button><button id="requiredSaveButton" class="primary hidden" type="button" onclick="saveRequiredCounts()">💾 변경 인원 저장</button></div>
       <div id="requiredGrid" class="required-grid"></div>
       <div class="generate-box"><button class="primary big" onclick="autoArrange()">⚙️ 휴일 제외 자동편성</button><p>주방 기본 근무시간은 09:00~21:00이며 편성 후 변경할 수 있습니다.</p></div>
     </section>
