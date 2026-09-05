@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한국의집 주방·설거지 주간 근무표</title>
   <meta name="theme-color" content="#385a47">
-  <link rel="stylesheet" href="kitchen.css?v=2">
+  <link rel="stylesheet" href="kitchen.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -27,16 +27,8 @@
 
     <section class="step-card">
       <div class="step-head"><span>1</span><div><h2>근무자 관리</h2><p>업무, 기본 근무시간과 목표 근무일수를 등록합니다.</p></div></div>
-      <form id="staffForm" class="staff-form" onsubmit="saveStaff(event)">
-        <input type="hidden" id="staffId">
-        <label>직원명<input id="staffName" required maxlength="30"></label>
-        <label>업무<select id="staffRole"><option value="kitchen">주방조리</option><option value="prep">전처리</option><option value="wash">설거지</option></select></label>
-        <label>목표일수<select id="staffTarget"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
-        <label>시작<input type="time" id="staffStart" value="09:00"></label>
-        <label>종료<input type="time" id="staffEnd" value="21:00"></label>
-        <button class="primary" type="submit">저장</button><button type="button" onclick="resetStaffForm()">취소</button>
-      </form>
-      <div class="matrix-scroll"><table><thead><tr><th>업무</th><th>직원명</th><th>목표</th><th>기본시간</th><th>관리</th></tr></thead><tbody id="staffManageBody"></tbody></table></div>
+      <div class="staff-actions"><button class="primary" type="button" onclick="openStaffModal()">➕ 근무자 등록</button></div>
+      <div class="matrix-scroll"><table><thead><tr><th>업무</th><th>직원명</th><th>목표</th><th>이번 주 근무</th><th>기본시간</th><th>관리</th></tr></thead><tbody id="staffManageBody"></tbody></table></div>
     </section>
 
     <section class="step-card">
@@ -59,8 +51,22 @@
       <div class="final-actions" data-html2canvas-ignore="true"><button class="primary" onclick="saveKitchenSchedule()">💾 근무표 저장</button><button class="image" onclick="makeScheduleImage()">📷 카톡용 이미지 만들기</button><button onclick="window.print()">🖨️ 인쇄</button></div>
     </section>
   </main>
+  <div id="staffModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="staffModalTitle">
+    <div class="modal-backdrop" onclick="closeStaffModal()"></div>
+    <section class="modal-card">
+      <div class="modal-head"><h2 id="staffModalTitle">근무자 등록</h2><button type="button" class="modal-close" onclick="closeStaffModal()">✕</button></div>
+      <form id="staffForm" class="modal-form" onsubmit="saveStaff(event)">
+        <input type="hidden" id="staffId">
+        <label>직원명<input id="staffName" required maxlength="30"></label>
+        <label>업무<select id="staffRole"><option value="kitchen">주방조리</option><option value="prep">전처리</option><option value="wash">설거지</option></select></label>
+        <label>목표 근무일수<select id="staffTarget"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
+        <div class="time-fields"><label>시작시간<input type="time" id="staffStart" value="09:00"></label><label>종료시간<input type="time" id="staffEnd" value="21:00"></label></div>
+        <div class="modal-actions"><button type="button" onclick="closeStaffModal()">취소</button><button class="primary" type="submit">저장</button></div>
+      </form>
+    </section>
+  </div>
   <footer>한국의집 주방·설거지 주간 근무표</footer>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>
