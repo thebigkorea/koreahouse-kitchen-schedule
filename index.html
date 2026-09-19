@@ -2,14 +2,32 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>한국의집 주방·설거지 주간 근무표</title>
   <meta name="theme-color" content="#385a47">
-  <link rel="stylesheet" href="kitchen.css?v=6">
+  <link rel="stylesheet" href="kitchen.css?v=7">
 </head>
 <body>
+
+  <!-- 전용 로딩 화면: 데이터 준비가 끝나기 전에는 실제 화면을 가립니다. -->
+  <div id="loadingBox" class="loading">
+    <div class="loading-panel">
+      <div class="loading-mark">韓</div>
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <strong>주방·설거지 근무표</strong>
+      <p>근무표를 준비하고 있습니다.</p>
+      <small>잠시만 기다려 주세요</small>
+    </div>
+  </div>
+
   <header class="topbar">
-    <div class="brand"><div class="brand-mark">韓</div><div><strong>한국의집 주방·설거지 근무표</strong><span>KITCHEN WEEKLY SCHEDULE</span></div></div>
+    <div class="brand">
+      <div class="brand-mark">韓</div>
+      <div>
+        <strong>한국의집 주방·설거지 근무표</strong>
+        <span>KITCHEN WEEKLY SCHEDULE</span>
+      </div>
+    </div>
     <div class="top-actions">
       <button type="button" onclick="loadThisWeek()">📅 이번주 조회</button>
       <button type="button" onclick="loadSelectedWeek()">📂 선택 주 조회</button>
@@ -19,14 +37,27 @@
 
   <main class="wrap">
     <section class="hero">
-      <div><p class="eyebrow">KITCHEN SCHEDULE</p><h1>휴일과 필요 인원을 정하면<br>근무표가 자동으로 만들어집니다.</h1><p>휴무자는 자동 제외되고, 휴무가 아닌 미배치 직원은 저장 전에 표시됩니다.</p></div>
-      <div class="week-box"><label for="mondayInput">주간 시작일</label><input type="date" id="mondayInput"><div class="week-buttons"><button onclick="setThisWeek()">이번주</button><button onclick="setNextWeek()">다음주</button></div></div>
+      <div class="hero-copy">
+        <p class="eyebrow">KITCHEN SCHEDULE</p>
+        <h1>휴일과 필요 인원을 정하면<br>근무표가 자동으로 만들어집니다.</h1>
+        <p>휴무자는 자동 제외되고, 휴무가 아닌 미배치 직원은 저장 전에 표시됩니다.</p>
+      </div>
+      <div class="week-box">
+        <label for="mondayInput">주간 시작일</label>
+        <input type="date" id="mondayInput">
+        <div class="week-buttons">
+          <button type="button" onclick="setThisWeek()">이번주</button>
+          <button type="button" onclick="setNextWeek()">다음주</button>
+        </div>
+      </div>
     </section>
 
-    <section id="loadingBox" class="loading hidden">자료를 불러오는 중입니다...</section>
-
     <section class="step-card">
-      <div class="step-head"><span>1</span><div><h2>근무자 관리</h2><p>업무, 기본 근무시간과 목표 근무일수를 등록합니다.</p></div></div>
+      <div class="step-head">
+        <span>1</span>
+        <div><h2>근무자 관리</h2><p>업무, 기본 근무시간과 목표 근무일수를 등록합니다.</p></div>
+      </div>
+
       <form id="newStaffForm" class="staff-form" onsubmit="saveNewStaff(event)">
         <label>직원명<input id="newStaffName" required maxlength="30" placeholder="신규 직원명"></label>
         <label>업무<select id="newStaffRole"><option value="kitchen">주방조리</option><option value="prep">전처리</option><option value="wash">설거지</option></select></label>
@@ -36,29 +67,71 @@
         <button class="primary" type="submit">➕ 신규 등록</button>
         <button type="reset">입력 초기화</button>
       </form>
-      <div class="matrix-scroll staff-list-scroll"><table class="staff-table"><thead><tr><th>업무</th><th>직원명</th><th>목표</th><th>이번 주 근무</th><th>기본시간</th><th>관리</th></tr></thead><tbody id="staffManageBody"></tbody></table></div>
+
+      <div class="matrix-scroll staff-list-scroll">
+        <table class="staff-table">
+          <thead><tr><th>업무</th><th>직원명</th><th>목표</th><th>이번 주 근무</th><th>기본시간</th><th>관리</th></tr></thead>
+          <tbody id="staffManageBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="step-card">
-      <div class="step-head"><span>2</span><div><h2>직원별 휴일 선택</h2><p>쉬는 날을 누르면 빨간색 휴일로 바뀝니다.</p></div></div>
-      <div class="toolbar"><div class="dayoff-actions"><button type="button" onclick="clearAllDaysOff()">휴일 전체 취소</button><button type="button" class="primary" onclick="saveDayOffs()">💾 휴일 저장</button></div><span class="legend"><i></i> 휴일로 선택됨</span></div>
-      <div class="matrix-scroll dayoff-scroll"><table class="dayoff-table"><thead id="dayOffHead"></thead><tbody id="dayOffBody"></tbody></table></div>
+      <div class="step-head">
+        <span>2</span>
+        <div><h2>직원별 휴일 선택</h2><p>쉬는 날을 누르면 빨간색 휴일로 바뀝니다.</p></div>
+      </div>
+      <div class="toolbar">
+        <div class="dayoff-actions">
+          <button type="button" onclick="clearAllDaysOff()">휴일 전체 취소</button>
+          <button type="button" class="primary" onclick="saveDayOffs()">💾 휴일 저장</button>
+        </div>
+        <span class="legend"><i></i> 휴일로 선택됨</span>
+      </div>
+      <div class="matrix-scroll dayoff-scroll">
+        <table class="dayoff-table">
+          <thead id="dayOffHead"></thead>
+          <tbody id="dayOffBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="step-card">
-      <div class="step-head"><span>3</span><div><h2>날짜별 필요 인원</h2><p>저장한 인원은 다시 변경하기 전까지 계속 적용됩니다.</p></div></div>
-      <div class="required-actions"><button id="requiredEditButton" type="button" onclick="editRequiredCounts()">✏️ 필요 인원 수정</button><button id="requiredSaveButton" class="primary hidden" type="button" onclick="saveRequiredCounts()">💾 변경 인원 저장</button></div>
+      <div class="step-head">
+        <span>3</span>
+        <div><h2>날짜별 필요 인원</h2><p>저장한 인원은 다시 변경하기 전까지 계속 적용됩니다.</p></div>
+      </div>
+      <div class="required-actions">
+        <button id="requiredEditButton" type="button" onclick="editRequiredCounts()">✏️ 필요 인원 수정</button>
+        <button id="requiredSaveButton" class="primary hidden" type="button" onclick="saveRequiredCounts()">💾 변경 인원 저장</button>
+      </div>
       <div id="requiredGrid" class="required-grid"></div>
-      <div class="generate-box"><button class="primary big" onclick="autoArrange()">⚙️ 휴일 제외 자동편성</button><p>주방 기본 근무시간은 09:00~21:00이며 편성 후 변경할 수 있습니다.</p></div>
+      <div class="generate-box">
+        <button class="primary big" onclick="autoArrange()">⚙️ 휴일 제외 자동편성</button>
+        <p>주방 기본 근무시간은 09:00~21:00이며 편성 후 변경할 수 있습니다.</p>
+      </div>
     </section>
 
     <section class="table-card">
-      <div class="table-head"><div><p class="kicker">STEP 4</p><h2 id="scheduleTitle">주방·설거지 주간 근무표</h2></div><p id="warningText"></p></div>
-      <div class="table-scroll"><table class="schedule-table"><thead id="scheduleHead"></thead><tbody id="scheduleBody"></tbody></table></div>
+      <div class="table-head">
+        <div><p class="kicker">STEP 4</p><h2 id="scheduleTitle">주방·설거지 주간 근무표</h2></div>
+        <p id="warningText"></p>
+      </div>
+      <div class="table-scroll">
+        <table class="schedule-table">
+          <thead id="scheduleHead"></thead>
+          <tbody id="scheduleBody"></tbody>
+        </table>
+      </div>
       <div id="statusSummary" class="status-summary"></div>
-      <div class="final-actions" data-html2canvas-ignore="true"><button class="primary" onclick="saveKitchenSchedule()">💾 근무표 저장</button><button class="image" onclick="makeScheduleImage()">📷 카톡용 이미지 만들기</button><button onclick="window.print()">🖨️ 인쇄</button></div>
+      <div class="final-actions" data-html2canvas-ignore="true">
+        <button class="primary" onclick="saveKitchenSchedule()">💾 근무표 저장</button>
+        <button class="image" onclick="makeScheduleImage()">📷 카톡용 이미지 만들기</button>
+        <button onclick="window.print()">🖨️ 인쇄</button>
+      </div>
     </section>
   </main>
+
   <div id="staffModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="staffModalTitle">
     <div class="modal-backdrop" onclick="closeStaffModal()"></div>
     <section class="modal-card">
@@ -68,13 +141,18 @@
         <label>직원명<input id="staffName" required maxlength="30"></label>
         <label>업무<select id="staffRole"><option value="kitchen">주방조리</option><option value="prep">전처리</option><option value="wash">설거지</option></select></label>
         <label>목표 근무일수<select id="staffTarget"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
-        <div class="time-fields"><label>시작시간<input type="time" id="staffStart" value="09:00"></label><label>종료시간<input type="time" id="staffEnd" value="21:00"></label></div>
+        <div class="time-fields">
+          <label>시작시간<input type="time" id="staffStart" value="09:00"></label>
+          <label>종료시간<input type="time" id="staffEnd" value="21:00"></label>
+        </div>
         <div class="modal-actions"><button type="button" onclick="closeStaffModal()">취소</button><button class="primary" type="submit">저장</button></div>
       </form>
     </section>
   </div>
+
   <footer>한국의집 주방·설거지 주간 근무표</footer>
+
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="script.js?v=9"></script>
+  <script src="script.js?v=10"></script>
 </body>
 </html>
